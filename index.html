@@ -263,6 +263,31 @@
     font-size: 14px;
     letter-spacing: 0.08em;
   }
+
+  /* Streaming indicator shown at bottom while more sections are still arriving */
+  .streaming-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    border-top: 1px dotted var(--border);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .streaming-indicator .loading-dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .streaming-indicator .loading-dot {
+    width: 5px;
+    height: 5px;
+  }
   .loading-dot {
     display: inline-block;
     width: 6px;
@@ -1059,6 +1084,128 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
     bindCopyButtons();
   }
 
+  // Try to extract a complete top-level JSON value for a given key from partial JSON text.
+  // Returns the parsed value, or undefined if the value isn't complete yet.
+  function extractCompleteSection(jsonText, key) {
+    const keyPattern = new RegExp(`"${key}"\\s*:\\s*`, 'g');
+    const match = keyPattern.exec(jsonText);
+    if (!match) return undefined;
+    const valueStart = match.index + match[0].length;
+    if (valueStart >= jsonText.length) return undefined;
+
+    const firstChar = jsonText[valueStart];
+
+    // Scalar values: string, number, boolean, null
+    if (firstChar === '"') {
+      // Find closing quote, accounting for escapes
+      let i = valueStart + 1;
+      while (i < jsonText.length) {
+        if (jsonText[i] === '\\') { i += 2; continue; }
+        if (jsonText[i] === '"') {
+          const raw = jsonText.substring(valueStart, i + 1);
+          try { return JSON.parse(raw); } catch { return undefined; }
+        }
+        i++;
+      }
+      return undefined;
+    }
+
+    if (firstChar === '{' || firstChar === '[') {
+      // Walk forward tracking depth and string state
+      const open = firstChar;
+      const close = firstChar === '{' ? '}' : ']';
+      let depth = 0;
+      let inString = false;
+      let i = valueStart;
+      while (i < jsonText.length) {
+        const c = jsonText[i];
+        if (inString) {
+          if (c === '\\') { i += 2; continue; }
+          if (c === '"') inString = false;
+        } else {
+          if (c === '"') inString = true;
+          else if (c === open) depth++;
+          else if (c === close) {
+            depth--;
+            if (depth === 0) {
+              const raw = jsonText.substring(valueStart, i + 1);
+              try { return JSON.parse(raw); } catch { return undefined; }
+            }
+          }
+        }
+        i++;
+      }
+      return undefined;
+    }
+
+    // Numbers, booleans, null: read until comma, closing brace, or whitespace+newline
+    const scalarMatch = jsonText.substring(valueStart).match(/^(-?\d+\.?\d*(?:[eE][+-]?\d+)?|true|false|null)(?=\s*[,}\]])/);
+    if (scalarMatch) {
+      try { return JSON.parse(scalarMatch[1]); } catch { return undefined; }
+    }
+    return undefined;
+  }
+
+  // Extract whatever sections are complete from a partial output stream
+  function extractPartialOutput(accumulatedText) {
+    const outputStart = accumulatedText.indexOf('<output>');
+    if (outputStart === -1) return null;
+    let jsonText = accumulatedText.substring(outputStart + '<output>'.length);
+    const closeIdx = jsonText.indexOf('</output>');
+    if (closeIdx !== -1) jsonText = jsonText.substring(0, closeIdx);
+    jsonText = jsonText.trim().replace(/^```json\s*/, '').replace(/```\s*$/, '');
+
+    const partial = {};
+    const keys = [
+      'content_summary',
+      'primary_topic',
+      'content_type_detected',
+      'discoverability_score',
+      'citation_analysis',
+      'answer_snippets',
+      'structured_data',
+      'entity_coverage',
+      'qa_reformatting',
+      'critical_issues',
+      'quick_wins'
+    ];
+    for (const key of keys) {
+      const value = extractCompleteSection(jsonText, key);
+      if (value !== undefined) partial[key] = value;
+    }
+    return partial;
+  }
+
+  // Render whatever sections are available. Used both for streaming previews
+  // and the final render. Returns true if at least one section was rendered.
+  function renderPartial(partial) {
+    if (!partial) return false;
+    const sections = [
+      renderScore(partial.discoverability_score),
+      renderCitation(partial.citation_analysis),
+      renderSnippets(partial.answer_snippets),
+      renderStructuredData(partial.structured_data),
+      renderEntities(partial.entity_coverage),
+      renderQA(partial.qa_reformatting),
+      renderIssues(partial.critical_issues, partial.quick_wins)
+    ].filter(Boolean);
+    if (sections.length === 0) return false;
+    outputPanel.classList.remove('empty');
+    outputPanel.classList.remove('loading-state');
+    outputPanel.innerHTML = sections.join('') + `
+      <div class="streaming-indicator" id="streaming-indicator">
+        <div class="loading-dots">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+        </div>
+        <span id="streaming-indicator-text">Streaming more results</span>
+      </div>
+    `;
+    bindCopyButtons();
+    return true;
+  }
+
   function bindCopyButtons() {
     document.querySelectorAll('.schema-copy').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -1158,6 +1305,32 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
       let accumulatedText = '';
       let buffer = '';
       const loadingStatus = document.getElementById('loading-status');
+      let progressiveMode = false;
+      let lastRenderTime = 0;
+      let lastRenderedSectionCount = 0;
+      const RENDER_THROTTLE_MS = 400;
+
+      function updateProgressIndicator(sectionLabel) {
+        const indicatorText = document.getElementById('streaming-indicator-text');
+        if (indicatorText) {
+          indicatorText.textContent = sectionLabel;
+        }
+      }
+
+      function tryProgressiveRender(force) {
+        const now = Date.now();
+        if (!force && now - lastRenderTime < RENDER_THROTTLE_MS) return;
+        const partial = extractPartialOutput(accumulatedText);
+        if (!partial) return;
+        const sectionCount = Object.keys(partial).length;
+        if (sectionCount === 0) return;
+        if (!force && sectionCount === lastRenderedSectionCount) return;
+        lastRenderTime = now;
+        lastRenderedSectionCount = sectionCount;
+        if (renderPartial(partial)) {
+          progressiveMode = true;
+        }
+      }
 
       while (true) {
         const { done, value } = await reader.read();
@@ -1176,44 +1349,57 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
             const event = JSON.parse(data);
             if (event.type === 'content_block_delta' && event.delta?.text) {
               accumulatedText += event.delta.text;
-              const loadingStatusSecondary = document.getElementById('loading-status-secondary');
-              if (loadingStatus) {
-                const thinkingMatch = accumulatedText.match(/<thinking>([\s\S]*?)(<\/thinking>|$)/);
-                const thinkingLen = thinkingMatch ? thinkingMatch[1].length : 0;
-                const thinkingDone = accumulatedText.includes('</thinking>');
-                const outputStarted = accumulatedText.includes('<output>');
 
-                if (outputStarted) {
-                  // Detect which section is currently being generated by finding
-                  // the last section key that has appeared in the output stream
-                  const outputText = accumulatedText.split('<output>')[1] || '';
-                  const sectionMarkers = [
-                    { key: '"quick_wins"', label: 'Generating quick wins' },
-                    { key: '"critical_issues"', label: 'Generating critical issues' },
-                    { key: '"qa_reformatting"', label: 'Generating Q&A reformatting' },
-                    { key: '"entity_coverage"', label: 'Generating entity coverage' },
-                    { key: '"structured_data"', label: 'Generating structured data' },
-                    { key: '"answer_snippets"', label: 'Generating answer snippets' },
-                    { key: '"citation_analysis"', label: 'Generating citation analysis' },
-                    { key: '"discoverability_score"', label: 'Generating discoverability score' },
-                    { key: '"content_type_detected"', label: 'Detecting content type' },
-                    { key: '"primary_topic"', label: 'Identifying primary topic' },
-                    { key: '"content_summary"', label: 'Summarising content' }
-                  ];
-                  const currentSection = sectionMarkers.find(m => outputText.includes(m.key));
-                  const sectionLabel = currentSection ? currentSection.label : 'Structuring results';
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
-                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = sectionLabel;
-                } else if (thinkingDone) {
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
-                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = 'Preparing output';
-                } else if (accumulatedText.includes('<thinking>')) {
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
-                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = '';
-                } else {
-                  loadingStatus.textContent = `Working (${accumulatedText.length.toLocaleString()} characters)`;
-                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = '';
+              // Section detection used by both pre-progressive and progressive states
+              const outputStarted = accumulatedText.includes('<output>');
+              let sectionLabel = '';
+              if (outputStarted) {
+                const outputText = accumulatedText.split('<output>')[1] || '';
+                const sectionMarkers = [
+                  { key: '"quick_wins"', label: 'Generating quick wins' },
+                  { key: '"critical_issues"', label: 'Generating critical issues' },
+                  { key: '"qa_reformatting"', label: 'Generating Q&A reformatting' },
+                  { key: '"entity_coverage"', label: 'Generating entity coverage' },
+                  { key: '"structured_data"', label: 'Generating structured data' },
+                  { key: '"answer_snippets"', label: 'Generating answer snippets' },
+                  { key: '"citation_analysis"', label: 'Generating citation analysis' },
+                  { key: '"discoverability_score"', label: 'Generating discoverability score' },
+                  { key: '"content_type_detected"', label: 'Detecting content type' },
+                  { key: '"primary_topic"', label: 'Identifying primary topic' },
+                  { key: '"content_summary"', label: 'Summarising content' }
+                ];
+                const currentSection = sectionMarkers.find(m => outputText.includes(m.key));
+                sectionLabel = currentSection ? currentSection.label : 'Structuring results';
+              }
+
+              if (progressiveMode) {
+                // Update the small indicator at the bottom and try rendering new sections
+                updateProgressIndicator(sectionLabel || 'Streaming more results');
+                tryProgressiveRender(false);
+              } else {
+                // Still in big loading state; update labels and check whether to switch
+                const loadingStatusSecondary = document.getElementById('loading-status-secondary');
+                if (loadingStatus) {
+                  const thinkingMatch = accumulatedText.match(/<thinking>([\s\S]*?)(<\/thinking>|$)/);
+                  const thinkingLen = thinkingMatch ? thinkingMatch[1].length : 0;
+                  const thinkingDone = accumulatedText.includes('</thinking>');
+
+                  if (outputStarted) {
+                    loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
+                    if (loadingStatusSecondary) loadingStatusSecondary.textContent = sectionLabel;
+                  } else if (thinkingDone) {
+                    loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
+                    if (loadingStatusSecondary) loadingStatusSecondary.textContent = 'Preparing output';
+                  } else if (accumulatedText.includes('<thinking>')) {
+                    loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
+                    if (loadingStatusSecondary) loadingStatusSecondary.textContent = '';
+                  } else {
+                    loadingStatus.textContent = `Working (${accumulatedText.length.toLocaleString()} characters)`;
+                    if (loadingStatusSecondary) loadingStatusSecondary.textContent = '';
+                  }
                 }
+                // Try to switch to progressive mode if at least one section is complete
+                tryProgressiveRender(false);
               }
             }
           } catch {}
