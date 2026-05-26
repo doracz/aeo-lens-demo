@@ -4,6 +4,6 @@
   "private": true,
   "description": "AEO Lens - answer engine optimisation analysis. Claude-powered portfolio prototype.",
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   }
 }
