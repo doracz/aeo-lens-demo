@@ -1,0 +1,9 @@
+{
+  "name": "aeo-lens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AEO Lens - answer engine optimisation analysis. Claude-powered portfolio prototype.",
+  "engines": {
+    "node": "22.x"
+  }
+}

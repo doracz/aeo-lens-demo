@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<meta name="description" content="AEO Lens - analyse content for AI-driven discovery across ChatGPT, Claude, Perplexity and Google AI Overviews. A Claude-powered portfolio prototype.">
+<title>AEO Lens - answer engine optimisation analysis</title>
+<style>
+  :root {
+    --bg-page: #F4F5F7;
+    --bg-surface: #FFFFFF;
+    --bg-inset: #FAFBFC;
+    --bg-status-yes: #E0F2F1;
+    --bg-status-partial: #F0F7F6;
+    --bg-status-no: #F4F5F7;
+    --text-primary: #0F1419;
+    --text-secondary: #374151;
+    --text-muted: #5F6770;
+    --text-status-partial: #4B7575;
+    --text-status-no: #4B5560;
+    --accent: #0F5757;
+    --accent-light: #6FA8A8;
+    --accent-pale: #C8D5D5;
+    --navy: #1E2A47;
+    --border: #E5E7EB;
+    --radius-sm: 3px;
+    --radius-md: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.55;
+    font-size: 16px;
+    min-height: 100vh;
+    position: relative;
+    padding: 32px 28px 80px;
+  }
+
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--navy), var(--accent));
+    z-index: 100;
+  }
+  body::before { top: 0; }
+  body::after { bottom: 0; }
+
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  /* Header */
+  .header { margin-bottom: 40px; }
+  .header-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .header-title h1 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .header-version {
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+  .header-intro {
+    color: var(--text-muted);
+    font-size: 16px;
+    margin: 0;
+    max-width: 780px;
+  }
+
+  /* Layout */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; gap: 40px; }
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 22px;
+  }
+  .panel-section {
+    margin-bottom: 20px;
+  }
+
+  /* Section labels - mono uppercase */
+  .label-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* Form labels */
+  .form-label {
+    display: block;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+  .form-label .optional {
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  textarea, input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--text-primary);
+    background: var(--bg-inset);
+    box-sizing: border-box;
+  }
+  textarea {
+    min-height: 200px;
+    resize: vertical;
+  }
+  textarea:focus, input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(15, 87, 87, 0.1);
+  }
+
+  .input-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 12px 20px;
+    margin-top: 20px;
+    background: var(--accent);
+    color: #FFFFFF;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #0A4040;
+  }
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  /* Output panel */
+  @property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  @keyframes rotate-gradient {
+    to {
+      --angle: 360deg;
+    }
+  }
+
+  .output-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 22px;
+    min-height: 480px;
+    position: relative;
+  }
+
+  .output-panel.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .output-panel.loading-state {
+    border: 2px solid transparent;
+    background:
+      linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box,
+      conic-gradient(from var(--angle), var(--navy), var(--accent), var(--navy), var(--accent), var(--navy)) border-box;
+    animation: rotate-gradient 3s linear infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .loading-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.4s infinite ease-in-out;
+  }
+  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+  /* Score section */
+  .score-header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .score-big {
+    font-size: 56px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent);
+    letter-spacing: -0.03em;
+  }
+  .score-over {
+    font-size: 16px;
+    color: var(--text-muted);
+  }
+  .score-pill {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 4px 10px;
+    background: var(--bg-status-yes);
+    color: var(--accent);
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
+  }
+  .score-verdict {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin: 8px 0 22px;
+    font-style: italic;
+  }
+  .sub-scores {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .sub-score-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 40px;
+    gap: 14px;
+    align-items: center;
+  }
+  .sub-score-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sub-score-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .sub-score-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+  }
+  .sub-score-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: right;
+  }
+
+  /* Citation analysis */
+  .citation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 700px) {
+    .citation-grid { grid-template-columns: 1fr; }
+  }
+  .citation-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+  .citation-card.status-yes { border-left: 3px solid var(--accent); }
+  .citation-card.status-partial { border-left: 3px solid var(--accent-light); }
+  .citation-card.status-no { border-left: 3px solid var(--accent-pale); }
+
+  .citation-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    gap: 8px;
+  }
+  .citation-engine {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .status-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .status-pill.status-yes { background: var(--bg-status-yes); color: var(--accent); }
+  .status-pill.status-partial { background: var(--bg-status-partial); color: var(--text-status-partial); }
+  .status-pill.status-no { background: var(--bg-status-no); color: var(--text-status-no); }
+
+  .citation-reason {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+  }
+  .citation-change {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dotted var(--border);
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .citation-change-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-right: 6px;
+  }
+
+  /* Answer snippets */
+  .snippet {
+    background: var(--bg-inset);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .snippet:last-child { margin-bottom: 0; }
+  .snippet-query {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .snippet-text {
+    font-size: 16px;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    line-height: 1.5;
+  }
+  .snippet-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .quality-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .quality-pill.quality-strong { background: var(--bg-status-yes); color: var(--accent); }
+  .quality-pill.quality-adequate { background: var(--bg-status-partial); color: var(--text-status-partial); }
+  .quality-pill.quality-weak { background: var(--bg-status-no); color: var(--text-status-no); }
+  .snippet-improvement {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dotted var(--border);
+  }
+  .snippet-improvement-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-right: 6px;
+  }
+
+  /* Structured data */
+  .schema-type {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+  .schema-block {
+    position: relative;
+    background: #0F1419;
+    border-radius: var(--radius-md);
+    padding: 16px;
+    overflow: auto;
+    max-height: 320px;
+  }
+  .schema-block pre {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #E5E7EB;
+    white-space: pre;
+  }
+  .schema-copy {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #E5E7EB;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-sm);
+    padding: 4px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .schema-copy:hover { background: rgba(255, 255, 255, 0.2); }
+  .schema-copy.copied { background: var(--accent); border-color: var(--accent); }
+
+  /* Entity coverage */
+  .entity-row {
+    margin-bottom: 12px;
+  }
+  .entity-row:last-child { margin-bottom: 0; }
+  .entity-row-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .entity-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .entity-chip {
+    display: inline-block;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+  .entity-chip.missing {
+    background: var(--bg-inset);
+    border-style: dashed;
+    color: var(--text-secondary);
+  }
+  .entity-assessment {
+    margin-top: 10px;
+    font-size: 16px;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  /* Q&A reformatting */
+  .qa-block {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    background: var(--bg-inset);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+  .qa-block:last-child { margin-bottom: 0; }
+  .qa-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .qa-original {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px dotted var(--border);
+    line-height: 1.5;
+  }
+  .qa-rewritten {
+    font-size: 16px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  /* Issues and quick wins */
+  .issues-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 700px) {
+    .issues-grid { grid-template-columns: 1fr; }
+  }
+  .issues-list {
+    margin: 0;
+    padding-left: 22px;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .issues-list li { margin-bottom: 8px; }
+  .issues-list li:last-child { margin-bottom: 0; }
+
+  /* Error */
+  .error {
+    color: #991B1B;
+    padding: 14px;
+    background: #FEE2E2;
+    border: 1px solid #FECACA;
+    border-left: 3px solid #DC2626;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+  }
+  .error strong { font-weight: 700; }
+
+  /* Footer */
+  .footer {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .footer a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .footer a:hover { color: #0A4040; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="header">
+    <div class="header-title">
+      <h1>AEO Lens</h1>
+      <span class="header-version">v0.1</span>
+    </div>
+    <p class="header-intro">Analyse content for AI-driven discovery. Get citation likelihood across ChatGPT, Claude, Perplexity and Google AI Overviews, plus structured data, entity coverage, and rewrite recommendations.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="label-mono">Input</div>
+
+      <label class="form-label" for="content-input">Content to analyse</label>
+      <textarea id="content-input" placeholder="Paste an article, landing page, blog post, or other published content. Minimum 50 characters."></textarea>
+      <div class="input-meta">
+        <span id="char-count">0 / 12,000</span>
+        <span id="char-status"></span>
+      </div>
+
+      <label class="form-label" for="query-input" style="margin-top: 18px;">Target query <span class="optional">(optional)</span></label>
+      <input type="text" id="query-input" placeholder="e.g. best CRM for small business">
+
+      <button class="btn-primary" id="analyse-btn" disabled>Analyse content</button>
+    </section>
+
+    <section class="output-panel empty" id="output-panel">
+      Paste content on the left to see a full AEO analysis here.
+    </section>
+  </div>
+
+  <footer class="footer">
+    <span>Claude Sonnet 4.6 · Streaming · Single-agent</span>
+    <span>Built by <a href="https://www.doracee.com/" target="_blank" rel="noopener noreferrer">Dora Czerna</a> · Portfolio prototype</span>
+  </footer>
+
+</div>
+
+<script>
+  const contentInput = document.getElementById('content-input');
+  const queryInput = document.getElementById('query-input');
+  const analyseBtn = document.getElementById('analyse-btn');
+  const outputPanel = document.getElementById('output-panel');
+  const charCount = document.getElementById('char-count');
+  const charStatus = document.getElementById('char-status');
+
+  function updateCharCount() {
+    const len = contentInput.value.length;
+    charCount.textContent = `${len.toLocaleString()} / 12,000`;
+    if (len === 0) {
+      charStatus.textContent = '';
+      analyseBtn.disabled = true;
+    } else if (len < 50) {
+      charStatus.textContent = `Need ${50 - len} more`;
+      charStatus.style.color = 'var(--text-muted)';
+      analyseBtn.disabled = true;
+    } else if (len > 12000) {
+      charStatus.textContent = 'Too long';
+      charStatus.style.color = '#991B1B';
+      analyseBtn.disabled = true;
+    } else {
+      charStatus.textContent = 'Ready';
+      charStatus.style.color = 'var(--accent)';
+      analyseBtn.disabled = false;
+    }
+  }
+
+  contentInput.addEventListener('input', updateCharCount);
+  updateCharCount();
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function statusClass(s) {
+    const v = String(s || '').toLowerCase().trim();
+    if (v === 'yes' || v === 'strong') return 'status-yes';
+    if (v === 'partial' || v === 'adequate') return 'status-partial';
+    return 'status-no';
+  }
+
+  function qualityClass(s) {
+    const v = String(s || '').toLowerCase().trim();
+    if (v === 'strong') return 'quality-strong';
+    if (v === 'adequate') return 'quality-adequate';
+    return 'quality-weak';
+  }
+
+  function renderScore(s) {
+    if (!s) return '';
+    const overall = Math.round(s.overall ?? 0);
+    const verdict = String(s.verdict ?? '');
+    let pillLabel = 'NEEDS WORK';
+    if (overall >= 80) pillLabel = 'STRONG';
+    else if (overall >= 60) pillLabel = 'MIXED PERFORMANCE';
+    else if (overall >= 40) pillLabel = 'BELOW AVERAGE';
+
+    const subs = [
+      ['Clarity', s.clarity],
+      ['Structure', s.structure],
+      ['Citation', s.citation_worthiness],
+      ['Entities', s.entity_richness],
+      ['Answer', s.answer_readiness],
+    ];
+
+    return `
+      <section class="panel-section">
+        <div class="label-mono">Discoverability score</div>
+        <div class="score-header">
+          <span class="score-big">${overall}</span>
+          <span class="score-over">/ 100</span>
+          <span class="score-pill">${escapeHtml(pillLabel)}</span>
+        </div>
+        <p class="score-verdict">${escapeHtml(verdict)}</p>
+        <div class="sub-scores">
+          ${subs.map(([label, val]) => {
+            const v = Math.round(val ?? 0);
+            return `
+              <div class="sub-score-row">
+                <div class="sub-score-label">${escapeHtml(label)}</div>
+                <div class="sub-score-bar"><div class="sub-score-bar-fill" style="width: ${v}%;"></div></div>
+                <div class="sub-score-value">${v}</div>
+              </div>`;
+          }).join('')}
+        </div>
+      </section>`;
+  }
+
+  function renderCitation(items) {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    return `
+      <section class="panel-section">
+        <div class="label-mono">Citation analysis</div>
+        <div class="citation-grid">
+          ${items.map(i => {
+            const cls = statusClass(i.would_cite);
+            const status = String(i.would_cite || '').toUpperCase();
+            const changeSection = i.what_to_change && i.what_to_change.toLowerCase() !== 'no changes needed'
+              ? `<div class="citation-change"><span class="citation-change-label">CHANGE:</span>${escapeHtml(i.what_to_change)}</div>`
+              : '';
+            return `
+              <div class="citation-card ${cls}">
+                <div class="citation-head">
+                  <span class="citation-engine">${escapeHtml(i.engine || '')}</span>
+                  <span class="status-pill ${cls}">${escapeHtml(status)}</span>
+                </div>
+                <p class="citation-reason">${escapeHtml(i.reasoning || '')}</p>
+                ${changeSection}
+              </div>`;
+          }).join('')}
+        </div>
+      </section>`;
+  }
+
+  function renderSnippets(items) {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    return `
+      <section class="panel-section">
+        <div class="label-mono">Answer snippets</div>
+        ${items.map(i => {
+          const cls = qualityClass(i.snippet_quality);
+          const quality = String(i.snippet_quality || '').toUpperCase();
+          const improvement = i.improvement_note && i.snippet_quality !== 'strong'
+            ? `<div class="snippet-improvement"><span class="snippet-improvement-label">IMPROVE:</span>${escapeHtml(i.improvement_note)}</div>`
+            : '';
+          return `
+            <div class="snippet">
+              <div class="snippet-query">Q: ${escapeHtml(i.query || '')}</div>
+              <p class="snippet-text">${escapeHtml(i.snippet || '')}</p>
+              <div class="snippet-meta">
+                <span class="quality-pill ${cls}">${escapeHtml(quality)}</span>
+              </div>
+              ${improvement}
+            </div>`;
+        }).join('')}
+      </section>`;
+  }
+
+  function renderStructuredData(sd) {
+    if (!sd) return '';
+    let pretty = sd.json_ld || '';
+    try {
+      const parsed = typeof pretty === 'string' ? JSON.parse(pretty) : pretty;
+      pretty = JSON.stringify(parsed, null, 2);
+    } catch {
+      pretty = String(pretty);
+    }
+    const id = 'schema-' + Math.random().toString(36).slice(2, 9);
+    return `
+      <section class="panel-section">
+        <div class="label-mono">Structured data</div>
+        <div class="schema-type">@type: ${escapeHtml(sd.recommended_schema_type || '')}</div>
+        <div class="schema-block">
+          <button class="schema-copy" data-target="${id}" aria-label="Copy JSON-LD">COPY</button>
+          <pre id="${id}">${escapeHtml(pretty)}</pre>
+        </div>
+      </section>`;
+  }
+
+  function renderEntities(ec) {
+    if (!ec) return '';
+    const present = Array.isArray(ec.entities_present) ? ec.entities_present : [];
+    const missing = Array.isArray(ec.entities_missing) ? ec.entities_missing : [];
+    if (present.length === 0 && missing.length === 0 && !ec.entity_density_assessment) return '';
+    return `
+      <section class="panel-section">
+        <div class="label-mono">Entity coverage</div>
+        ${present.length ? `
+          <div class="entity-row">
+            <div class="entity-row-label">Present</div>
+            <div class="entity-chips">${present.map(e => `<span class="entity-chip">${escapeHtml(e)}</span>`).join('')}</div>
+          </div>` : ''}
+        ${missing.length ? `
+          <div class="entity-row">
+            <div class="entity-row-label">Missing</div>
+            <div class="entity-chips">${missing.map(e => `<span class="entity-chip missing">${escapeHtml(e)}</span>`).join('')}</div>
+          </div>` : ''}
+        ${ec.entity_density_assessment ? `<p class="entity-assessment">${escapeHtml(ec.entity_density_assessment)}</p>` : ''}
+      </section>`;
+  }
+
+  function renderQA(items) {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    return `
+      <section class="panel-section">
+        <div class="label-mono">Q&amp;A reformatting</div>
+        ${items.map(i => `
+          <div class="qa-block">
+            <div class="qa-label">Original</div>
+            <div class="qa-original">${escapeHtml(i.original_passage || '')}</div>
+            <div class="qa-label">Reformatted</div>
+            <div class="qa-rewritten">${escapeHtml(i.rewritten_as_qa || '')}</div>
+          </div>
+        `).join('')}
+      </section>`;
+  }
+
+  function renderIssues(critical, quick) {
+    const hasCritical = Array.isArray(critical) && critical.length > 0;
+    const hasQuick = Array.isArray(quick) && quick.length > 0;
+    if (!hasCritical && !hasQuick) return '';
+    return `
+      <section class="panel-section">
+        <div class="issues-grid">
+          ${hasCritical ? `
+            <div>
+              <div class="label-mono">Critical issues</div>
+              <ul class="issues-list">${critical.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+            </div>` : ''}
+          ${hasQuick ? `
+            <div>
+              <div class="label-mono">Quick wins</div>
+              <ul class="issues-list">${quick.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+            </div>` : ''}
+        </div>
+      </section>`;
+  }
+
+  function renderOutput(o) {
+    if (!o) {
+      outputPanel.innerHTML = `<div class="error">No output produced. Try again.</div>`;
+      return;
+    }
+    if (o.error) {
+      outputPanel.innerHTML = `<div class="error"><strong>Could not parse the analysis.</strong><br>${escapeHtml(o.error)}</div>`;
+      return;
+    }
+    outputPanel.classList.remove('empty');
+    outputPanel.innerHTML = `
+      ${renderScore(o.discoverability_score)}
+      ${renderCitation(o.citation_analysis)}
+      ${renderSnippets(o.answer_snippets)}
+      ${renderStructuredData(o.structured_data)}
+      ${renderEntities(o.entity_coverage)}
+      ${renderQA(o.qa_reformatting)}
+      ${renderIssues(o.critical_issues, o.quick_wins)}
+    `;
+    bindCopyButtons();
+  }
+
+  function bindCopyButtons() {
+    document.querySelectorAll('.schema-copy').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const targetId = btn.getAttribute('data-target');
+        const pre = document.getElementById(targetId);
+        if (!pre) return;
+        try {
+          await navigator.clipboard.writeText(pre.textContent);
+          const orig = btn.textContent;
+          btn.textContent = 'COPIED';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.classList.remove('copied');
+          }, 1600);
+        } catch {
+          // Clipboard not available
+        }
+      });
+    });
+  }
+
+  function parseResponse(text) {
+    let output = null;
+    let jsonStr = null;
+
+    const outputMatch = text.match(/<output>([\s\S]*?)<\/output>/);
+    if (outputMatch) {
+      jsonStr = outputMatch[1].trim();
+    } else {
+      const afterThinking = text.split('</thinking>')[1] || text;
+      const firstBrace = afterThinking.indexOf('{');
+      const lastBrace = afterThinking.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        jsonStr = afterThinking.substring(firstBrace, lastBrace + 1);
+      }
+    }
+
+    if (jsonStr) {
+      try {
+        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+        output = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error('JSON parse failed:', e.message);
+        console.error('Attempted:', jsonStr.substring(0, 500));
+        output = { error: 'The model produced invalid JSON. Try again.' };
+      }
+    } else {
+      console.error('No JSON found. Full text:', text);
+      output = { error: 'No analysis block found in response. Try again.' };
+    }
+    return output;
+  }
+
+  analyseBtn.addEventListener('click', async () => {
+    const content = contentInput.value.trim();
+    const targetQuery = queryInput.value.trim();
+    if (content.length < 50) return;
+
+    outputPanel.classList.remove('empty');
+    outputPanel.classList.add('loading-state');
+    outputPanel.innerHTML = `
+      <div class="loading">
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <span id="loading-status">Analysing</span>
+      </div>
+    `;
+    analyseBtn.disabled = true;
+
+    if (window.innerWidth <= 900) {
+      setTimeout(() => {
+        outputPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+
+    try {
+      const response = await fetch('/api/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, target_query: targetQuery || undefined })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(err.error || 'Request failed');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+      let buffer = '';
+      const loadingStatus = document.getElementById('loading-status');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split('\n\n');
+        buffer = events.pop() || '';
+
+        for (const eventBlock of events) {
+          const dataLine = eventBlock.split('\n').find(line => line.startsWith('data: '));
+          if (!dataLine) continue;
+          const data = dataLine.slice(6).trim();
+          if (!data || data === '[DONE]') continue;
+          try {
+            const event = JSON.parse(data);
+            if (event.type === 'content_block_delta' && event.delta?.text) {
+              accumulatedText += event.delta.text;
+              if (loadingStatus) {
+                const len = accumulatedText.length;
+                if (accumulatedText.includes('<output>')) {
+                  loadingStatus.textContent = 'Structuring results';
+                } else if (accumulatedText.includes('<thinking>')) {
+                  loadingStatus.textContent = `Reasoning (${len.toLocaleString()})`;
+                } else {
+                  loadingStatus.textContent = `Working (${len.toLocaleString()})`;
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // Process any final buffered event
+      if (buffer.trim()) {
+        const dataLine = buffer.split('\n').find(line => line.startsWith('data: '));
+        if (dataLine) {
+          const data = dataLine.slice(6).trim();
+          if (data && data !== '[DONE]') {
+            try {
+              const event = JSON.parse(data);
+              if (event.type === 'content_block_delta' && event.delta?.text) {
+                accumulatedText += event.delta.text;
+              }
+            } catch {}
+          }
+        }
+      }
+
+      const parsed = parseResponse(accumulatedText);
+      renderOutput(parsed);
+    } catch (err) {
+      outputPanel.innerHTML = `<div class="error"><strong>Something went wrong.</strong><br>${escapeHtml(err.message)}</div>`;
+    } finally {
+      outputPanel.classList.remove('loading-state');
+      analyseBtn.disabled = false;
+      updateCharCount();
+    }
+  });
+</script>
+</body>
+</html>
