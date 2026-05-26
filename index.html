@@ -45,7 +45,7 @@
     position: fixed;
     left: 0;
     right: 0;
-    height: 3px;
+    height: 4px;
     background: linear-gradient(90deg, var(--navy), var(--accent));
     z-index: 100;
   }
@@ -571,6 +571,41 @@
   .issues-list li { margin-bottom: 8px; }
   .issues-list li:last-child { margin-bottom: 0; }
 
+  /* Example links */
+  .examples-block {
+    margin-top: 22px;
+  }
+  .examples-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .example-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: -6px;
+  }
+  .example-link {
+    font-size: 16px;
+    color: var(--accent);
+    padding: 6px 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    text-align: left;
+    font-family: inherit;
+    width: fit-content;
+  }
+  .example-link:hover {
+    color: #0A4040;
+  }
+
   /* Error */
   .error {
     color: #991B1B;
@@ -630,6 +665,11 @@
       <label class="form-label" for="query-input" style="margin-top: 18px;">Target query <span class="optional">(optional)</span></label>
       <input type="text" id="query-input" placeholder="e.g. best CRM for small business">
 
+      <div class="examples-block">
+        <div class="examples-label">Or try an example</div>
+        <div class="example-links" id="example-links"></div>
+      </div>
+
       <button class="btn-primary" id="analyse-btn" disabled>Analyse content</button>
     </section>
 
@@ -652,6 +692,82 @@
   const outputPanel = document.getElementById('output-panel');
   const charCount = document.getElementById('char-count');
   const charStatus = document.getElementById('char-status');
+  const exampleLinksEl = document.getElementById('example-links');
+
+  const EXAMPLES = [
+    {
+      label: 'B2B SaaS landing page',
+      query: 'best CRM for small business',
+      content: `Choosing the Right CRM for Small Business
+
+If you run a small business, you have probably thought about using a CRM. CRMs help you manage customer relationships. There are many CRMs out there. Some are expensive, some are free. Some have lots of features, some are simple. In this article we will look at what to consider when choosing a CRM for your small business.
+
+We will talk about features, pricing, ease of use, and integrations. By the end you should have a better idea of what to look for.
+
+Features matter. You want to make sure the CRM has what you need. Contact management is the most important. You also want to be able to track deals and conversations.
+
+Pricing is important too. Small businesses often have tight budgets. Look for something affordable but also good quality.
+
+Ease of use matters because your team needs to actually use it. A complicated CRM that no one uses is worse than no CRM at all.
+
+Integrations help connect your CRM to other tools like email and calendar.
+
+There are many good options. Hopefully this helps you make the right choice.`
+    },
+    {
+      label: 'Editorial thought piece',
+      query: '',
+      content: `Why AI Pricing Is the Most Underrated Story in Software Right Now
+
+The headlines about AI tend to focus on capability. Each new model release brings a wave of commentary on what it can write, what it can code, what it can answer. Buried beneath that is a quieter shift that will end up mattering more for most companies than capability: the price.
+
+Over the last eighteen months, the cost of running a query against a frontier-class model has fallen by roughly an order of magnitude. Tasks that cost dollars to perform a year ago now cost cents. Tasks that cost cents now cost fractions of a cent. This is not a small change. It is the difference between an AI feature being a premium add-on you charge extra for, and an AI feature being something you embed everywhere because the marginal cost is effectively zero.
+
+There are two ways to read this. One is that the economics of software are about to be rewritten, with margins compressing across the board as features that were once expensive become commodities. The other is that the abundance of cheap intelligence creates entirely new product categories that were not commercially viable before.
+
+Both are probably true at the same time. The companies that win will be the ones who understand that AI capability is no longer the moat. Cost structure is.`
+    },
+    {
+      label: 'How-to guide',
+      query: 'how to set up a sourdough starter',
+      content: `How to Set Up a Sourdough Starter
+
+A sourdough starter is a living culture of wild yeast and bacteria that you use to make bread rise without commercial yeast. Setting one up takes about a week and requires only flour and water. Once established it can last for years if you feed it regularly.
+
+What you need
+
+You will need flour (whole grain rye or whole wheat works best to start), filtered or bottled water at room temperature, and a clean glass jar with a loose-fitting lid. Avoid tap water if your area uses heavily chlorinated water as the chlorine can inhibit the fermentation.
+
+Day 1
+
+Mix 50 grams of flour with 50 grams of water in your jar. Stir until no dry flour remains. Cover loosely (you want air flow but not contamination) and leave at room temperature, ideally around 21 to 24 degrees Celsius.
+
+Days 2 to 7
+
+Each day, discard about half the starter and feed it with another 50 grams of flour and 50 grams of water. By day 3 or 4 you should start seeing bubbles. By day 5 or 6 the starter should be doubling in size between feedings.
+
+How to tell when it is ready
+
+The starter is ready to bake with when it reliably doubles in volume within 4 to 8 hours of feeding, smells pleasantly tangy and slightly sweet, and floats when you drop a small spoonful into water.
+
+Maintenance
+
+Once active, you can keep your starter on the counter (feed daily) or in the fridge (feed weekly). Most home bakers find the fridge approach more practical.`
+    }
+  ];
+
+  EXAMPLES.forEach(ex => {
+    const a = document.createElement('button');
+    a.className = 'example-link';
+    a.textContent = ex.label;
+    a.addEventListener('click', () => {
+      contentInput.value = ex.content;
+      queryInput.value = ex.query;
+      updateCharCount();
+      contentInput.scrollTop = 0;
+    });
+    exampleLinksEl.appendChild(a);
+  });
 
   function updateCharCount() {
     const len = contentInput.value.length;
