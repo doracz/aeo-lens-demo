@@ -235,17 +235,33 @@
 
   .loading {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 12px;
     color: var(--text-muted);
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-align: center;
-    flex-wrap: wrap;
     padding: 0 16px;
+  }
+  .loading-dots {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .loading-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .loading-text-secondary {
+    color: var(--accent);
+    font-size: 14px;
+    letter-spacing: 0.08em;
   }
   .loading-dot {
     display: inline-block;
@@ -1106,10 +1122,15 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
     outputPanel.classList.add('loading-state');
     outputPanel.innerHTML = `
       <div class="loading">
-        <div class="loading-dot"></div>
-        <div class="loading-dot"></div>
-        <div class="loading-dot"></div>
-        <span id="loading-status">Analysing</span>
+        <div class="loading-dots">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+        </div>
+        <div class="loading-text">
+          <span id="loading-status">Analysing</span>
+          <span id="loading-status-secondary" class="loading-text-secondary"></span>
+        </div>
       </div>
     `;
     analyseBtn.disabled = true;
@@ -1155,6 +1176,7 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
             const event = JSON.parse(data);
             if (event.type === 'content_block_delta' && event.delta?.text) {
               accumulatedText += event.delta.text;
+              const loadingStatusSecondary = document.getElementById('loading-status-secondary');
               if (loadingStatus) {
                 const thinkingMatch = accumulatedText.match(/<thinking>([\s\S]*?)(<\/thinking>|$)/);
                 const thinkingLen = thinkingMatch ? thinkingMatch[1].length : 0;
@@ -1180,13 +1202,17 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
                   ];
                   const currentSection = sectionMarkers.find(m => outputText.includes(m.key));
                   const sectionLabel = currentSection ? currentSection.label : 'Structuring results';
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters) · ${sectionLabel}`;
+                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
+                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = sectionLabel;
                 } else if (thinkingDone) {
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters) · Preparing output`;
+                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
+                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = 'Preparing output';
                 } else if (accumulatedText.includes('<thinking>')) {
                   loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
+                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = '';
                 } else {
                   loadingStatus.textContent = `Working (${accumulatedText.length.toLocaleString()} characters)`;
+                  if (loadingStatusSecondary) loadingStatusSecondary.textContent = '';
                 }
               }
             }
