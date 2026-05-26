@@ -228,9 +228,26 @@
       linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box,
       conic-gradient(from var(--angle), var(--navy), var(--accent), var(--navy), var(--accent), var(--navy)) border-box;
     animation: rotate-gradient 3s linear infinite;
+  }
+
+  /* When loading-state has no sections rendered yet, center the loading block */
+  .output-panel.loading-state:not(.streaming) {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* While streaming with partial results, stack content and push indicator to bottom */
+  .output-panel.streaming {
+    display: flex;
+    flex-direction: column;
+  }
+  .output-panel.streaming .streaming-content {
+    flex: 0 0 auto;
+  }
+  .output-panel.streaming .streaming-indicator {
+    margin-top: auto;
+    flex: 0 0 auto;
   }
 
   .loading {
@@ -267,26 +284,26 @@
   /* Streaming indicator shown at bottom while more sections are still arriving */
   .streaming-indicator {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 12px;
-    padding: 16px;
-    margin-top: 12px;
-    border-top: 1px dotted var(--border);
+    padding: 32px 16px;
     color: var(--accent);
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    text-align: center;
   }
   .streaming-indicator .loading-dots {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
   }
   .streaming-indicator .loading-dot {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
   }
   .loading-dot {
     display: inline-block;
@@ -1178,7 +1195,7 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
 
   // Render whatever sections are available. Used both for streaming previews
   // and the final render. Returns true if at least one section was rendered.
-  function renderPartial(partial) {
+  function renderPartial(partial, stillStreaming) {
     if (!partial) return false;
     const sections = [
       renderScore(partial.discoverability_score),
@@ -1191,17 +1208,25 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
     ].filter(Boolean);
     if (sections.length === 0) return false;
     outputPanel.classList.remove('empty');
-    outputPanel.classList.remove('loading-state');
-    outputPanel.innerHTML = sections.join('') + `
-      <div class="streaming-indicator" id="streaming-indicator">
-        <div class="loading-dots">
-          <div class="loading-dot"></div>
-          <div class="loading-dot"></div>
-          <div class="loading-dot"></div>
+    if (stillStreaming) {
+      outputPanel.classList.add('loading-state');
+      outputPanel.classList.add('streaming');
+      outputPanel.innerHTML = `
+        <div class="streaming-content">${sections.join('')}</div>
+        <div class="streaming-indicator" id="streaming-indicator">
+          <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+          </div>
+          <span id="streaming-indicator-text">Streaming more results</span>
         </div>
-        <span id="streaming-indicator-text">Streaming more results</span>
-      </div>
-    `;
+      `;
+    } else {
+      outputPanel.classList.remove('loading-state');
+      outputPanel.classList.remove('streaming');
+      outputPanel.innerHTML = sections.join('');
+    }
     bindCopyButtons();
     return true;
   }
@@ -1327,7 +1352,7 @@ Once active, you can keep your starter on the counter (feed daily) or in the fri
         if (!force && sectionCount === lastRenderedSectionCount) return;
         lastRenderTime = now;
         lastRenderedSectionCount = sectionCount;
-        if (renderPartial(partial)) {
+        if (renderPartial(partial, true)) {
           progressiveMode = true;
         }
       }
