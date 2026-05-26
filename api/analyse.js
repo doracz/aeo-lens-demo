@@ -1,1207 +1,214 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light">
-<meta name="description" content="AEO Lens - analyse content for AI-driven discovery across ChatGPT, Claude, Perplexity and Google AI Overviews. A Claude-powered portfolio prototype.">
-<title>AEO Lens - answer engine optimisation analysis</title>
-<style>
-  :root {
-    --bg-page: #F4F5F7;
-    --bg-surface: #FFFFFF;
-    --bg-inset: #FAFBFC;
-    --bg-status-yes: #E0F2F1;
-    --bg-status-partial: #F0F7F6;
-    --bg-status-no: #F4F5F7;
-    --text-primary: #0F1419;
-    --text-secondary: #374151;
-    --text-muted: #5F6770;
-    --text-status-partial: #4B7575;
-    --text-status-no: #4B5560;
-    --accent: #0F5757;
-    --accent-light: #6FA8A8;
-    --accent-pale: #C8D5D5;
-    --navy: #1E2A47;
-    --border: #E5E7EB;
-    --radius-sm: 3px;
-    --radius-md: 4px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg-page);
-    color: var(--text-primary);
-    line-height: 1.55;
-    font-size: 16px;
-    min-height: 100vh;
-    position: relative;
-    padding: 32px 28px 80px;
-  }
-
-  body::before,
-  body::after {
-    content: '';
-    position: fixed;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--navy), var(--accent));
-    z-index: 100;
-  }
-  body::before { top: 0; }
-  body::after { bottom: 0; }
-
-  .container { max-width: 1200px; margin: 0 auto; }
-
-  /* Header */
-  .header { margin-bottom: 40px; }
-  .header-title {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-  }
-  .header-title h1 {
-    font-size: 26px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    margin: 0;
-  }
-  .header-version {
-    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-  }
-  .header-intro {
-    color: var(--text-muted);
-    font-size: 16px;
-    margin: 0;
-    max-width: 780px;
-  }
-
-  /* Layout */
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    gap: 20px;
-    margin-bottom: 20px;
-    min-width: 0;
-  }
-  .grid > * {
-    min-width: 0;
-  }
-  @media (max-width: 900px) {
-    .grid { grid-template-columns: 1fr; gap: 40px; }
-  }
-
-  /* Panels */
-  .panel {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 22px;
-  }
-  .panel-section {
-    margin-bottom: 20px;
-    min-width: 0;
-  }
-
-  /* Section labels - mono uppercase */
-  .label-mono {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 14px;
-  }
-
-  /* Form labels */
-  .form-label {
-    display: block;
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-  }
-  .form-label .optional {
-    font-weight: 400;
-    color: var(--text-muted);
-  }
-
-  textarea, input[type="text"] {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 16px;
-    line-height: 1.55;
-    color: var(--text-primary);
-    background: var(--bg-inset);
-    box-sizing: border-box;
-  }
-  textarea {
-    min-height: 200px;
-    resize: vertical;
-  }
-  textarea:focus, input[type="text"]:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(15, 87, 87, 0.1);
-  }
-
-  .input-meta {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-  }
-
-  .btn-primary {
-    width: 100%;
-    padding: 12px 20px;
-    margin-top: 20px;
-    background: var(--accent);
-    color: #FFFFFF;
-    border: none;
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.15s ease, opacity 0.15s ease;
-  }
-  .btn-primary:hover:not(:disabled) {
-    background: #0A4040;
-  }
-  .btn-primary:disabled {
-    opacity: 0.6;
-    cursor: wait;
-  }
-
-  /* Output panel */
-  @property --angle {
-    syntax: '<angle>';
-    initial-value: 0deg;
-    inherits: false;
-  }
-
-  @keyframes rotate-gradient {
-    to {
-      --angle: 360deg;
-    }
-  }
-
-  .output-panel {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 22px;
-    min-height: 480px;
-    position: relative;
-    overflow: hidden;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    min-width: 0;
-  }
-
-  .output-panel.empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    font-size: 16px;
-    text-align: center;
-  }
-
-  .output-panel.loading-state {
-    border: 2px solid transparent;
-    background:
-      linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box,
-      conic-gradient(from var(--angle), var(--navy), var(--accent), var(--navy), var(--accent), var(--navy)) border-box;
-    animation: rotate-gradient 3s linear infinite;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    text-align: center;
-    flex-wrap: wrap;
-    padding: 0 16px;
-  }
-  .loading-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 1.4s infinite ease-in-out;
-  }
-  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
-  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes pulse { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
-
-  /* Score section */
-  .score-header {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    margin-bottom: 4px;
-    flex-wrap: wrap;
-  }
-  .score-big {
-    font-size: 56px;
-    font-weight: 600;
-    line-height: 1;
-    color: var(--accent);
-    letter-spacing: -0.03em;
-  }
-  .score-over {
-    font-size: 16px;
-    color: var(--text-muted);
-  }
-  .score-pill {
-    margin-left: auto;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    padding: 4px 10px;
-    background: var(--bg-status-yes);
-    color: var(--accent);
-    border-radius: var(--radius-sm);
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-  }
-  .score-verdict {
-    font-size: 16px;
-    color: var(--text-secondary);
-    margin: 8px 0 22px;
-    font-style: italic;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-  .sub-scores {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 0;
-  }
-  .sub-score-row {
-    display: grid;
-    grid-template-columns: 120px 1fr 40px;
-    gap: 14px;
-    align-items: center;
-    min-width: 0;
-  }
-  .sub-score-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .sub-score-bar {
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-    min-width: 0;
-  }
-  .sub-score-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 3px;
-  }
-  .sub-score-value {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--accent);
-    text-align: right;
-  }
-
-  /* Citation analysis */
-  .citation-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    min-width: 0;
-  }
-  @media (max-width: 700px) {
-    .citation-grid { grid-template-columns: 1fr; }
-  }
-  .citation-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    min-width: 0;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-  }
-  .citation-card.status-yes { border-left: 3px solid var(--accent); }
-  .citation-card.status-partial { border-left: 3px solid var(--accent-light); }
-  .citation-card.status-no { border-left: 3px solid var(--accent-pale); }
-
-  .citation-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 6px;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .citation-engine {
-    font-size: 16px;
-    font-weight: 600;
-  }
-  .status-pill {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-  .status-pill.status-yes { background: var(--bg-status-yes); color: var(--accent); }
-  .status-pill.status-partial { background: var(--bg-status-partial); color: var(--text-status-partial); }
-  .status-pill.status-no { background: var(--bg-status-no); color: var(--text-status-no); }
-
-  .citation-reason {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin: 0;
-    line-height: 1.5;
-  }
-  .citation-change {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dotted var(--border);
-    font-size: 14px;
-    color: var(--text-secondary);
-  }
-  .citation-change-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    margin-right: 6px;
-  }
-
-  /* Answer snippets */
-  .snippet {
-    background: var(--bg-inset);
-    border-left: 3px solid var(--accent);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-  }
-  .snippet:last-child { margin-bottom: 0; }
-  .snippet-query {
-    font-size: 14px;
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-    letter-spacing: 0.02em;
-  }
-  .snippet-text {
-    font-size: 16px;
-    color: var(--text-primary);
-    margin: 0 0 8px;
-    line-height: 1.5;
-  }
-  .snippet-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .quality-pill {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .quality-pill.quality-strong { background: var(--bg-status-yes); color: var(--accent); }
-  .quality-pill.quality-adequate { background: var(--bg-status-partial); color: var(--text-status-partial); }
-  .quality-pill.quality-weak { background: var(--bg-status-no); color: var(--text-status-no); }
-  .snippet-improvement {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dotted var(--border);
-  }
-  .snippet-improvement-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    margin-right: 6px;
-  }
-
-  /* Structured data */
-  .schema-type {
-    display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    background: var(--bg-inset);
-    border: 1px solid var(--border);
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    max-width: 100%;
-    word-break: break-all;
-  }
-  .schema-block {
-    position: relative;
-    background: #0F1419;
-    border-radius: var(--radius-md);
-    padding: 16px;
-    overflow: auto;
-    max-height: 320px;
-    max-width: 100%;
-  }
-  .schema-block pre {
-    margin: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    color: #E5E7EB;
-    white-space: pre;
-  }
-  .schema-copy {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    color: #E5E7EB;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: var(--radius-sm);
-    padding: 4px 10px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-  .schema-copy:hover { background: rgba(255, 255, 255, 0.2); }
-  .schema-copy.copied { background: var(--accent); border-color: var(--accent); }
-
-  /* Entity coverage */
-  .entity-row {
-    margin-bottom: 12px;
-  }
-  .entity-row:last-child { margin-bottom: 0; }
-  .entity-row-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .entity-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .entity-chip {
-    display: inline-block;
-    font-size: 14px;
-    padding: 4px 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    max-width: 100%;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-  }
-  .entity-chip.missing {
-    background: var(--bg-inset);
-    border-style: dashed;
-    color: var(--text-secondary);
-  }
-  .entity-assessment {
-    margin-top: 10px;
-    font-size: 16px;
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-
-  /* Q&A reformatting */
-  .qa-block {
-    margin-bottom: 16px;
-    padding: 14px 16px;
-    background: var(--bg-inset);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-  }
-  .qa-block:last-child { margin-bottom: 0; }
-  .qa-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  .qa-original {
-    font-size: 16px;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px dotted var(--border);
-    line-height: 1.5;
-  }
-  .qa-rewritten {
-    font-size: 16px;
-    color: var(--text-primary);
-    line-height: 1.5;
-    white-space: pre-wrap;
-  }
-
-  /* Issues and quick wins */
-  .issues-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    min-width: 0;
-  }
-  .issues-grid > * {
-    min-width: 0;
-  }
-  @media (max-width: 700px) {
-    .issues-grid { grid-template-columns: 1fr; }
-  }
-  .issues-list {
-    margin: 0;
-    padding-left: 22px;
-    font-size: 16px;
-    line-height: 1.6;
-  }
-  .issues-list li { margin-bottom: 8px; overflow-wrap: break-word; word-wrap: break-word; }
-  .issues-list li:last-child { margin-bottom: 0; }
-
-  /* Example links */
-  .examples-block {
-    margin-top: 22px;
-  }
-  .examples-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-  }
-  .example-links {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: -6px;
-  }
-  .example-link {
-    font-size: 16px;
-    color: var(--accent);
-    padding: 6px 0;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    background: none;
-    border: none;
-    text-align: left;
-    font-family: inherit;
-    width: fit-content;
-  }
-  .example-link:hover {
-    color: #0A4040;
-  }
-
-  /* Error */
-  .error {
-    color: #991B1B;
-    padding: 14px;
-    background: #FEE2E2;
-    border: 1px solid #FECACA;
-    border-left: 3px solid #DC2626;
-    border-radius: var(--radius-sm);
-    font-size: 16px;
-  }
-  .error strong { font-weight: 700; }
-
-  /* Footer */
-  .footer {
-    margin-top: 28px;
-    padding-top: 18px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-  }
-  .footer a {
-    color: var(--accent);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .footer a:hover { color: #0A4040; }
-</style>
-</head>
-<body>
-<div class="container">
-
-  <header class="header">
-    <div class="header-title">
-      <h1>AEO Lens</h1>
-      <span class="header-version">v0.1</span>
-    </div>
-    <p class="header-intro">Analyse content for AI-driven discovery. Get citation likelihood across ChatGPT, Claude, Perplexity and Google AI Overviews, plus structured data, entity coverage, and rewrite recommendations.</p>
-  </header>
-
-  <div class="grid">
-    <section class="panel">
-      <div class="label-mono">Input</div>
-
-      <label class="form-label" for="content-input">Content to analyse</label>
-      <textarea id="content-input" placeholder="Paste an article, landing page, blog post, or other published content. Minimum 50 characters."></textarea>
-      <div class="input-meta">
-        <span id="char-count">0 / 12,000</span>
-        <span id="char-status"></span>
-      </div>
-
-      <label class="form-label" for="query-input" style="margin-top: 18px;">Target query <span class="optional">(optional)</span></label>
-      <input type="text" id="query-input" placeholder="e.g. best CRM for small business">
-
-      <div class="examples-block">
-        <div class="examples-label">Or try an example</div>
-        <div class="example-links" id="example-links"></div>
-      </div>
-
-      <button class="btn-primary" id="analyse-btn" disabled>Analyse content</button>
-    </section>
-
-    <section class="output-panel empty" id="output-panel">
-      Paste content on the left to see a full AEO analysis here.
-    </section>
-  </div>
-
-  <footer class="footer">
-    <span>Claude Sonnet 4.6 · Streaming · Single-agent</span>
-    <span>Built by <a href="https://www.doracee.com/" target="_blank" rel="noopener noreferrer">Dora Czerna</a> · Portfolio prototype</span>
-  </footer>
-
-</div>
-
-<script>
-  const contentInput = document.getElementById('content-input');
-  const queryInput = document.getElementById('query-input');
-  const analyseBtn = document.getElementById('analyse-btn');
-  const outputPanel = document.getElementById('output-panel');
-  const charCount = document.getElementById('char-count');
-  const charStatus = document.getElementById('char-status');
-  const exampleLinksEl = document.getElementById('example-links');
-
-  const EXAMPLES = [
-    {
-      label: 'B2B SaaS landing page',
-      query: 'best CRM for small business',
-      content: `Choosing the Right CRM for Small Business
-
-If you run a small business, you have probably thought about using a CRM. CRMs help you manage customer relationships. There are many CRMs out there. Some are expensive, some are free. Some have lots of features, some are simple. In this article we will look at what to consider when choosing a CRM for your small business.
-
-We will talk about features, pricing, ease of use, and integrations. By the end you should have a better idea of what to look for.
-
-Features matter. You want to make sure the CRM has what you need. Contact management is the most important. You also want to be able to track deals and conversations.
-
-Pricing is important too. Small businesses often have tight budgets. Look for something affordable but also good quality.
-
-Ease of use matters because your team needs to actually use it. A complicated CRM that no one uses is worse than no CRM at all.
-
-Integrations help connect your CRM to other tools like email and calendar.
-
-There are many good options. Hopefully this helps you make the right choice.`
-    },
-    {
-      label: 'Editorial thought piece',
-      query: '',
-      content: `Why AI Pricing Is the Most Underrated Story in Software Right Now
-
-The headlines about AI tend to focus on capability. Each new model release brings a wave of commentary on what it can write, what it can code, what it can answer. Buried beneath that is a quieter shift that will end up mattering more for most companies than capability: the price.
-
-Over the last eighteen months, the cost of running a query against a frontier-class model has fallen by roughly an order of magnitude. Tasks that cost dollars to perform a year ago now cost cents. Tasks that cost cents now cost fractions of a cent. This is not a small change. It is the difference between an AI feature being a premium add-on you charge extra for, and an AI feature being something you embed everywhere because the marginal cost is effectively zero.
-
-There are two ways to read this. One is that the economics of software are about to be rewritten, with margins compressing across the board as features that were once expensive become commodities. The other is that the abundance of cheap intelligence creates entirely new product categories that were not commercially viable before.
-
-Both are probably true at the same time. The companies that win will be the ones who understand that AI capability is no longer the moat. Cost structure is.`
-    },
-    {
-      label: 'How-to guide',
-      query: 'how to set up a sourdough starter',
-      content: `How to Set Up a Sourdough Starter
-
-A sourdough starter is a living culture of wild yeast and bacteria that you use to make bread rise without commercial yeast. Setting one up takes about a week and requires only flour and water. Once established it can last for years if you feed it regularly.
-
-What you need
-
-You will need flour (whole grain rye or whole wheat works best to start), filtered or bottled water at room temperature, and a clean glass jar with a loose-fitting lid. Avoid tap water if your area uses heavily chlorinated water as the chlorine can inhibit the fermentation.
-
-Day 1
-
-Mix 50 grams of flour with 50 grams of water in your jar. Stir until no dry flour remains. Cover loosely (you want air flow but not contamination) and leave at room temperature, ideally around 21 to 24 degrees Celsius.
-
-Days 2 to 7
-
-Each day, discard about half the starter and feed it with another 50 grams of flour and 50 grams of water. By day 3 or 4 you should start seeing bubbles. By day 5 or 6 the starter should be doubling in size between feedings.
-
-How to tell when it is ready
-
-The starter is ready to bake with when it reliably doubles in volume within 4 to 8 hours of feeding, smells pleasantly tangy and slightly sweet, and floats when you drop a small spoonful into water.
-
-Maintenance
-
-Once active, you can keep your starter on the counter (feed daily) or in the fridge (feed weekly). Most home bakers find the fridge approach more practical.`
-    }
-  ];
-
-  EXAMPLES.forEach(ex => {
-    const a = document.createElement('button');
-    a.className = 'example-link';
-    a.textContent = ex.label;
-    a.addEventListener('click', () => {
-      contentInput.value = ex.content;
-      queryInput.value = ex.query;
-      updateCharCount();
-      contentInput.scrollTop = 0;
-    });
-    exampleLinksEl.appendChild(a);
-  });
-
-  function updateCharCount() {
-    const len = contentInput.value.length;
-    charCount.textContent = `${len.toLocaleString()} / 12,000`;
-    if (len === 0) {
-      charStatus.textContent = '';
-      analyseBtn.disabled = true;
-    } else if (len < 50) {
-      charStatus.textContent = `Need ${50 - len} more`;
-      charStatus.style.color = 'var(--text-muted)';
-      analyseBtn.disabled = true;
-    } else if (len > 12000) {
-      charStatus.textContent = 'Too long';
-      charStatus.style.color = '#991B1B';
-      analyseBtn.disabled = true;
-    } else {
-      charStatus.textContent = 'Ready';
-      charStatus.style.color = 'var(--accent)';
-      analyseBtn.disabled = false;
-    }
-  }
-
-  contentInput.addEventListener('input', updateCharCount);
-  updateCharCount();
-
-  function escapeHtml(s) {
-    if (s == null) return '';
-    return String(s).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-  }
-
-  function statusClass(s) {
-    const v = String(s || '').toLowerCase().trim();
-    if (v === 'yes' || v === 'strong') return 'status-yes';
-    if (v === 'partial' || v === 'adequate') return 'status-partial';
-    return 'status-no';
-  }
-
-  function qualityClass(s) {
-    const v = String(s || '').toLowerCase().trim();
-    if (v === 'strong') return 'quality-strong';
-    if (v === 'adequate') return 'quality-adequate';
-    return 'quality-weak';
-  }
-
-  function renderScore(s) {
-    if (!s) return '';
-    const overall = Math.round(s.overall ?? 0);
-    const verdict = String(s.verdict ?? '');
-    let pillLabel = 'NEEDS WORK';
-    if (overall >= 80) pillLabel = 'STRONG';
-    else if (overall >= 60) pillLabel = 'MIXED PERFORMANCE';
-    else if (overall >= 40) pillLabel = 'BELOW AVERAGE';
-
-    const subs = [
-      ['Clarity', s.clarity],
-      ['Structure', s.structure],
-      ['Citation', s.citation_worthiness],
-      ['Entities', s.entity_richness],
-      ['Answer', s.answer_readiness],
-    ];
-
-    return `
-      <section class="panel-section">
-        <div class="label-mono">Discoverability score</div>
-        <div class="score-header">
-          <span class="score-big">${overall}</span>
-          <span class="score-over">/ 100</span>
-          <span class="score-pill">${escapeHtml(pillLabel)}</span>
-        </div>
-        <p class="score-verdict">${escapeHtml(verdict)}</p>
-        <div class="sub-scores">
-          ${subs.map(([label, val]) => {
-            const v = Math.round(val ?? 0);
-            return `
-              <div class="sub-score-row">
-                <div class="sub-score-label">${escapeHtml(label)}</div>
-                <div class="sub-score-bar"><div class="sub-score-bar-fill" style="width: ${v}%;"></div></div>
-                <div class="sub-score-value">${v}</div>
-              </div>`;
-          }).join('')}
-        </div>
-      </section>`;
-  }
-
-  function renderCitation(items) {
-    if (!Array.isArray(items) || items.length === 0) return '';
-    return `
-      <section class="panel-section">
-        <div class="label-mono">Citation analysis</div>
-        <div class="citation-grid">
-          ${items.map(i => {
-            const cls = statusClass(i.would_cite);
-            const status = String(i.would_cite || '').toUpperCase();
-            const changeSection = i.what_to_change && i.what_to_change.toLowerCase() !== 'no changes needed'
-              ? `<div class="citation-change"><span class="citation-change-label">CHANGE:</span>${escapeHtml(i.what_to_change)}</div>`
-              : '';
-            return `
-              <div class="citation-card ${cls}">
-                <div class="citation-head">
-                  <span class="citation-engine">${escapeHtml(i.engine || '')}</span>
-                  <span class="status-pill ${cls}">${escapeHtml(status)}</span>
-                </div>
-                <p class="citation-reason">${escapeHtml(i.reasoning || '')}</p>
-                ${changeSection}
-              </div>`;
-          }).join('')}
-        </div>
-      </section>`;
-  }
-
-  function renderSnippets(items) {
-    if (!Array.isArray(items) || items.length === 0) return '';
-    return `
-      <section class="panel-section">
-        <div class="label-mono">Answer snippets</div>
-        ${items.map(i => {
-          const cls = qualityClass(i.snippet_quality);
-          const quality = String(i.snippet_quality || '').toUpperCase();
-          const improvement = i.improvement_note && i.snippet_quality !== 'strong'
-            ? `<div class="snippet-improvement"><span class="snippet-improvement-label">IMPROVE:</span>${escapeHtml(i.improvement_note)}</div>`
-            : '';
-          return `
-            <div class="snippet">
-              <div class="snippet-query">Q: ${escapeHtml(i.query || '')}</div>
-              <p class="snippet-text">${escapeHtml(i.snippet || '')}</p>
-              <div class="snippet-meta">
-                <span class="quality-pill ${cls}">${escapeHtml(quality)}</span>
-              </div>
-              ${improvement}
-            </div>`;
-        }).join('')}
-      </section>`;
-  }
-
-  function renderStructuredData(sd) {
-    if (!sd) return '';
-    let pretty = sd.json_ld || '';
-    try {
-      const parsed = typeof pretty === 'string' ? JSON.parse(pretty) : pretty;
-      pretty = JSON.stringify(parsed, null, 2);
-    } catch {
-      pretty = String(pretty);
-    }
-    const id = 'schema-' + Math.random().toString(36).slice(2, 9);
-    return `
-      <section class="panel-section">
-        <div class="label-mono">Structured data</div>
-        <div class="schema-type">@type: ${escapeHtml(sd.recommended_schema_type || '')}</div>
-        <div class="schema-block">
-          <button class="schema-copy" data-target="${id}" aria-label="Copy JSON-LD">COPY</button>
-          <pre id="${id}">${escapeHtml(pretty)}</pre>
-        </div>
-      </section>`;
-  }
-
-  function renderEntities(ec) {
-    if (!ec) return '';
-    const present = Array.isArray(ec.entities_present) ? ec.entities_present : [];
-    const missing = Array.isArray(ec.entities_missing) ? ec.entities_missing : [];
-    if (present.length === 0 && missing.length === 0 && !ec.entity_density_assessment) return '';
-    return `
-      <section class="panel-section">
-        <div class="label-mono">Entity coverage</div>
-        ${present.length ? `
-          <div class="entity-row">
-            <div class="entity-row-label">Present</div>
-            <div class="entity-chips">${present.map(e => `<span class="entity-chip">${escapeHtml(e)}</span>`).join('')}</div>
-          </div>` : ''}
-        ${missing.length ? `
-          <div class="entity-row">
-            <div class="entity-row-label">Missing</div>
-            <div class="entity-chips">${missing.map(e => `<span class="entity-chip missing">${escapeHtml(e)}</span>`).join('')}</div>
-          </div>` : ''}
-        ${ec.entity_density_assessment ? `<p class="entity-assessment">${escapeHtml(ec.entity_density_assessment)}</p>` : ''}
-      </section>`;
-  }
-
-  function renderQA(items) {
-    if (!Array.isArray(items) || items.length === 0) return '';
-    return `
-      <section class="panel-section">
-        <div class="label-mono">Q&amp;A reformatting</div>
-        ${items.map(i => `
-          <div class="qa-block">
-            <div class="qa-label">Original</div>
-            <div class="qa-original">${escapeHtml(i.original_passage || '')}</div>
-            <div class="qa-label">Reformatted</div>
-            <div class="qa-rewritten">${escapeHtml(i.rewritten_as_qa || '')}</div>
-          </div>
-        `).join('')}
-      </section>`;
-  }
-
-  function renderIssues(critical, quick) {
-    const hasCritical = Array.isArray(critical) && critical.length > 0;
-    const hasQuick = Array.isArray(quick) && quick.length > 0;
-    if (!hasCritical && !hasQuick) return '';
-    return `
-      <section class="panel-section">
-        <div class="issues-grid">
-          ${hasCritical ? `
-            <div>
-              <div class="label-mono">Critical issues</div>
-              <ul class="issues-list">${critical.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
-            </div>` : ''}
-          ${hasQuick ? `
-            <div>
-              <div class="label-mono">Quick wins</div>
-              <ul class="issues-list">${quick.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
-            </div>` : ''}
-        </div>
-      </section>`;
-  }
-
-  function renderOutput(o) {
-    if (!o) {
-      outputPanel.innerHTML = `<div class="error">No output produced. Try again.</div>`;
-      return;
-    }
-    if (o.error) {
-      outputPanel.innerHTML = `<div class="error"><strong>Could not parse the analysis.</strong><br>${escapeHtml(o.error)}</div>`;
-      return;
-    }
-    outputPanel.classList.remove('empty');
-    outputPanel.innerHTML = `
-      ${renderScore(o.discoverability_score)}
-      ${renderCitation(o.citation_analysis)}
-      ${renderSnippets(o.answer_snippets)}
-      ${renderStructuredData(o.structured_data)}
-      ${renderEntities(o.entity_coverage)}
-      ${renderQA(o.qa_reformatting)}
-      ${renderIssues(o.critical_issues, o.quick_wins)}
-    `;
-    bindCopyButtons();
-  }
-
-  function bindCopyButtons() {
-    document.querySelectorAll('.schema-copy').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const targetId = btn.getAttribute('data-target');
-        const pre = document.getElementById(targetId);
-        if (!pre) return;
-        try {
-          await navigator.clipboard.writeText(pre.textContent);
-          const orig = btn.textContent;
-          btn.textContent = 'COPIED';
-          btn.classList.add('copied');
-          setTimeout(() => {
-            btn.textContent = orig;
-            btn.classList.remove('copied');
-          }, 1600);
-        } catch {
-          // Clipboard not available
-        }
-      });
+// api/analyse.js
+// Vercel Edge runtime - streams Claude's response back to the browser as SSE.
+// Same pattern as Content Studio: avoids function timeout, lets the UI show progress.
+
+export const config = {
+  runtime: 'edge'
+};
+
+export default async function handler(req) {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
     });
   }
 
-  function parseResponse(text) {
-    let output = null;
-    let jsonStr = null;
-
-    const outputMatch = text.match(/<output>([\s\S]*?)<\/output>/);
-    if (outputMatch) {
-      jsonStr = outputMatch[1].trim();
-    } else {
-      const afterThinking = text.split('</thinking>')[1] || text;
-      const firstBrace = afterThinking.indexOf('{');
-      const lastBrace = afterThinking.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        jsonStr = afterThinking.substring(firstBrace, lastBrace + 1);
-      }
-    }
-
-    if (jsonStr) {
-      try {
-        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
-        output = JSON.parse(jsonStr);
-      } catch (e) {
-        console.error('JSON parse failed:', e.message);
-        console.error('Attempted:', jsonStr.substring(0, 500));
-        output = { error: 'The model produced invalid JSON. Try again.' };
-      }
-    } else {
-      console.error('No JSON found. Full text:', text);
-      output = { error: 'No analysis block found in response. Try again.' };
-    }
-    return output;
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
-  analyseBtn.addEventListener('click', async () => {
-    const content = contentInput.value.trim();
-    const targetQuery = queryInput.value.trim();
-    if (content.length < 50) return;
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
-    outputPanel.classList.remove('empty');
-    outputPanel.classList.add('loading-state');
-    outputPanel.innerHTML = `
-      <div class="loading">
-        <div class="loading-dot"></div>
-        <div class="loading-dot"></div>
-        <div class="loading-dot"></div>
-        <span id="loading-status">Analysing</span>
-      </div>
-    `;
-    analyseBtn.disabled = true;
+  const { content, target_query } = body;
 
-    if (window.innerWidth <= 900) {
-      setTimeout(() => {
-        outputPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
+  if (!content || typeof content !== 'string' || content.length < 50) {
+    return new Response(JSON.stringify({ error: 'Content must be at least 50 characters' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
-    try {
-      const response = await fetch('/api/analyse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, target_query: targetQuery || undefined })
+  if (content.length > 12000) {
+    return new Response(JSON.stringify({ error: 'Content exceeds 12,000 characters' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'API key not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const systemPrompt = buildSystemPrompt();
+  const userMessage = buildUserMessage(content, target_query);
+
+  try {
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        stream: true,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userMessage }
+        ]
+      })
+    });
+
+    if (!anthropicResponse.ok) {
+      const errorText = await anthropicResponse.text();
+      return new Response(JSON.stringify({ error: 'Anthropic API error', details: errorText }), {
+        status: anthropicResponse.status,
+        headers: { 'Content-Type': 'application/json' }
       });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(err.error || 'Request failed');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedText = '';
-      let buffer = '';
-      const loadingStatus = document.getElementById('loading-status');
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
-
-        for (const eventBlock of events) {
-          const dataLine = eventBlock.split('\n').find(line => line.startsWith('data: '));
-          if (!dataLine) continue;
-          const data = dataLine.slice(6).trim();
-          if (!data || data === '[DONE]') continue;
-          try {
-            const event = JSON.parse(data);
-            if (event.type === 'content_block_delta' && event.delta?.text) {
-              accumulatedText += event.delta.text;
-              if (loadingStatus) {
-                const thinkingMatch = accumulatedText.match(/<thinking>([\s\S]*?)(<\/thinking>|$)/);
-                const thinkingLen = thinkingMatch ? thinkingMatch[1].length : 0;
-                const thinkingDone = accumulatedText.includes('</thinking>');
-                const outputStarted = accumulatedText.includes('<output>');
-
-                if (outputStarted) {
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters) · Structuring results`;
-                } else if (thinkingDone) {
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters) · Preparing output`;
-                } else if (accumulatedText.includes('<thinking>')) {
-                  loadingStatus.textContent = `Reasoning (${thinkingLen.toLocaleString()} characters)`;
-                } else {
-                  loadingStatus.textContent = `Working (${accumulatedText.length.toLocaleString()} characters)`;
-                }
-              }
-            }
-          } catch {}
-        }
-      }
-
-      // Process any final buffered event
-      if (buffer.trim()) {
-        const dataLine = buffer.split('\n').find(line => line.startsWith('data: '));
-        if (dataLine) {
-          const data = dataLine.slice(6).trim();
-          if (data && data !== '[DONE]') {
-            try {
-              const event = JSON.parse(data);
-              if (event.type === 'content_block_delta' && event.delta?.text) {
-                accumulatedText += event.delta.text;
-              }
-            } catch {}
-          }
-        }
-      }
-
-      const parsed = parseResponse(accumulatedText);
-      renderOutput(parsed);
-    } catch (err) {
-      outputPanel.innerHTML = `<div class="error"><strong>Something went wrong.</strong><br>${escapeHtml(err.message)}</div>`;
-    } finally {
-      outputPanel.classList.remove('loading-state');
-      analyseBtn.disabled = false;
-      updateCharCount();
     }
-  });
-</script>
-</body>
-</html>
+
+    return new Response(anthropicResponse.body, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Server error', message: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+function buildSystemPrompt() {
+  return `You are an Answer Engine Optimisation (AEO) analyst. Your job is to evaluate content for how well it will perform across AI-driven discovery surfaces: ChatGPT, Claude, Perplexity, Google AI Overviews, and other large language model search systems.
+
+You produce a rigorous, structured analysis. You do not soften findings. If content is poorly structured for AEO, you say so directly.
+
+Before producing output, write a brief <thinking> block (2-4 short sentences only) about the content's core topic, primary audience, and the dimensions where it's weakest for AEO. Be terse.
+
+Then produce structured JSON output wrapped in <output> tags. Format must be:
+
+<thinking>
+[2-4 short sentences only]
+</thinking>
+
+<output>
+{
+  "task": "aeo_analysis",
+  ...
+}
+</output>
+
+Never produce JSON outside <output> tags. Never produce text after </output>.
+
+OUTPUT SCHEMA:
+
+{
+  "task": "aeo_analysis",
+  "content_summary": "1-2 sentence neutral summary of what the content is about",
+  "primary_topic": "The single core topic in 3-7 words",
+  "content_type_detected": "article | landing_page | guide | comparison | tutorial | other",
+  "discoverability_score": {
+    "overall": 0-100,
+    "clarity": 0-100,
+    "structure": 0-100,
+    "citation_worthiness": 0-100,
+    "entity_richness": 0-100,
+    "answer_readiness": 0-100,
+    "verdict": "One sentence honest verdict about whether AI engines will surface this content"
+  },
+  "citation_analysis": [
+    {
+      "engine": "ChatGPT | Claude | Perplexity | Google AI Overviews",
+      "would_cite": "yes | partial | no",
+      "reasoning": "1-2 sentences on why",
+      "what_to_change": "Specific actionable improvement, or 'No changes needed' if would_cite is yes"
+    }
+  ],
+  "answer_snippets": [
+    {
+      "query": "A natural question this content could answer",
+      "snippet": "The 1-3 sentence answer an AI engine would extract verbatim from the content as written",
+      "snippet_quality": "strong | adequate | weak",
+      "improvement_note": "If weak or adequate, the specific rewrite that would make it strong"
+    }
+  ],
+  "structured_data": {
+    "recommended_schema_type": "Schema.org type appropriate to the content (e.g. Article, FAQPage, HowTo, Product)",
+    "json_ld": "A complete, valid JSON-LD object as a JSON-encoded string, ready to drop into a page <script type='application/ld+json'> tag. Must be production-ready with all relevant properties populated from the content."
+  },
+  "entity_coverage": {
+    "entities_present": ["List of entities (people, organisations, concepts, products) the content references"],
+    "entities_missing": ["Entities the content SHOULD reference for better AI discoverability on this topic but doesn't"],
+    "entity_density_assessment": "1 sentence on whether the content is entity-rich enough for LLM retrieval"
+  },
+  "qa_reformatting": [
+    {
+      "original_passage": "A passage from the content that's hard for LLMs to retrieve",
+      "rewritten_as_qa": "The same information restructured as a clear Q: ... A: ... pair that LLMs prefer"
+    }
+  ],
+  "critical_issues": ["The 2-4 most important problems holding this content back from AEO performance"],
+  "quick_wins": ["The 3-5 highest-impact, lowest-effort changes that would meaningfully improve AEO performance"]
+}
+
+ANALYSIS PRINCIPLES:
+
+- Do not use em dashes anywhere in your output. Use commas, full stops, colons, or restructure the sentence.
+- Be honest about scoring. A score above 80 means the content is genuinely strong. Most real-world content sits in the 40-70 range. Don't inflate.
+- Citation analysis must be specific to each engine's actual citation patterns:
+  - ChatGPT: prefers structured, definitive answers with clear sources implied
+  - Claude: prefers nuanced explanations with explicit reasoning
+  - Perplexity: prefers content with concrete entities, dates, numbers
+  - Google AI Overviews: prefers content that directly answers user questions with clear structure
+- For citation_analysis, include all four engines listed above.
+- For answer_snippets, generate 3-5 entries covering different likely queries the content could answer.
+- For qa_reformatting, generate 2-3 entries showing the most impactful prose-to-Q&A transformations.
+- The json_ld field must contain a complete, valid Schema.org JSON-LD object encoded as a JSON string. Use the actual content's topic, headline, key facts. Do not produce placeholder values like "TITLE HERE".
+- entities_missing must be specific. Don't say "industry leaders" - name them. If you can't name them confidently from the content's topic, leave the field thin rather than fabricate.
+- critical_issues should be substantive problems, not nitpicks. quick_wins should be genuine quick wins, not "add more keywords".
+
+If the content is too thin (under ~100 words of substance) or appears not to be content meant for discovery (e.g. a personal note, an email), produce an output where overall score is low and the verdict explicitly notes this is not standard content for AEO analysis.
+
+If the target_query field is provided by the user, prioritise answer_snippets generation around that query.`;
+}
+
+function buildUserMessage(content, target_query) {
+  let message = '';
+
+  if (target_query) {
+    message += `TARGET QUERY: ${target_query}\n\n`;
+    message += `The user wants this content to perform well for the query above. Prioritise answer_snippets and citation_analysis around this query specifically.\n\n`;
+  }
+
+  message += `CONTENT TO ANALYSE:\n<content>\n${content}\n</content>\n\nProduce your <thinking> block, then the JSON output wrapped in <output> tags.`;
+
+  return message;
+}
